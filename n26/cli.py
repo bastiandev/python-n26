@@ -8,6 +8,8 @@ import click
 from requests import HTTPError
 from tabulate import tabulate
 
+import csv
+
 import n26.api as api
 from n26.const import AMOUNT, CURRENCY, REFERENCE_TEXT, ATM_WITHDRAW, CARD_STATUS_ACTIVE, DATETIME_FORMATS
 
@@ -317,6 +319,7 @@ def statements():
 
 
 @cli.command()
+# @click.option('-csv', default=False, type=bool, is_flag=True)
 @click.option('--categories', default=None, type=str,
               help='Comma separated list of category IDs.')
 @click.option('--pending', default=None, type=bool,
@@ -331,7 +334,9 @@ def statements():
 def transactions(categories: str, pending: bool, param_from: datetime or None, param_to: datetime or None,
                  text_filter: str, limit: int):
     """ Show transactions (default: 5) """
-    if not JSON_OUTPUT and not pending and not param_from and not limit:
+    CSV_OUTPUT = True
+
+    if not JSON_OUTPUT and not CSV_OUTPUT and not pending and not param_from and not limit:
         limit = 5
         click.echo(click.style("Output is limited to {} entries.".format(limit), fg="yellow"))
 
@@ -379,7 +384,18 @@ def transactions(categories: str, pending: bool, param_from: datetime or None, p
     headers = ['Date', 'Amount', 'From', 'To', 'Message', 'Recurring']
     text = tabulate(lines, headers, numalign='right')
 
-    click.echo(text.strip())
+    # HACK: Something that could become a CSV exporter at some point
+    if CSV_OUTPUT:
+        # Do CSV stuff here
+        with open('transactions.csv', 'w', newline='') as csvfile:
+            fieldnames = headers # Take headers as field names for CSV
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=',', quotechar='"')
+            writer.writeheader()
+
+            for line in lines:
+                writer.writerow({'Date': line[0], 'Amount': line[1], 'From': line[2], 'To': line[3], 'Message': line[4], 'Recurring': line[5]})
+    else:
+        click.echo(text.strip())
 
 
 @cli.command("standing-orders")
